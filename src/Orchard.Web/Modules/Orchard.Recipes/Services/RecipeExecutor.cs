@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
@@ -12,6 +13,8 @@ using Orchard.Hosting;
 using Orchard.Recipes.Events;
 using Orchard.Recipes.Models;
 using YesSql.Core.Services;
+using Microsoft.Extensions.Options;
+using System.IO;
 
 namespace Orchard.Recipes.Services
 {
@@ -19,7 +22,8 @@ namespace Orchard.Recipes.Services
     {
         private readonly IEventBus _eventBus;
         private readonly ISession _session;
-        private readonly IRecipeParser _recipeParser;
+        private readonly IEnumerable<IRecipeParser> _recipeParsers;
+        private readonly RecipeHarvestingOptions _recipeOptions;
         private readonly IOrchardFileSystem _fileSystem;
         private readonly IApplicationLifetime _applicationLifetime;
         private readonly ILogger _logger;
@@ -29,7 +33,8 @@ namespace Orchard.Recipes.Services
         public RecipeExecutor(
             IEventBus eventBus,
             ISession session,
-            IRecipeParser recipeParser,
+            IEnumerable<IRecipeParser> recipeParsers,
+            IOptions<RecipeHarvestingOptions> recipeOptions,
             IOrchardFileSystem fileSystem,
             IApplicationLifetime applicationLifetime,
             ShellSettings shellSettings,
@@ -42,7 +47,8 @@ namespace Orchard.Recipes.Services
             _applicationLifetime = applicationLifetime;
             _eventBus = eventBus;
             _session = session;
-            _recipeParser = recipeParser;
+            _recipeParsers = recipeParsers;
+            _recipeOptions = recipeOptions.Value;
             _fileSystem = fileSystem;
             _logger = logger;
             T = localizer;
@@ -56,54 +62,70 @@ namespace Orchard.Recipes.Services
 
             try
             {
-                using (var stream = _fileSystem.GetFileInfo(recipeDescriptor.Location).CreateReadStream())
+                var fileInfo = _fileSystem.GetFileInfo(recipeDescriptor.Location);
+
+                var parsersForFileExtension = _recipeOptions
+                    .RecipeFileExtensions
+                    .Where(rfx => rfx.Key == Path.GetExtension(fileInfo.PhysicalPath));
+
+                using (var stream = fileInfo.CreateReadStream())
                 {
                     RecipeResult result = new RecipeResult { ExecutionId = executionId };
                     List<RecipeStepResult> stepResults = new List<RecipeStepResult>();
 
-                    await _recipeParser.ProcessRecipeAsync(stream, (recipe, recipeStep) =>
+                    foreach (var parserForFileExtension in parsersForFileExtension)
                     {
-                        // TODO, create Result prior to run
-                        stepResults.Add(new RecipeStepResult
+                        var recipeParser = _recipeParsers.First(x => x.GetType() == parserForFileExtension.Value);
+
+                        await recipeParser.ProcessRecipeAsync(stream, (recipe, recipeStep) =>
                         {
-                            ExecutionId = executionId,
-                            RecipeName = recipeDescriptor.Name,
-                            StepId = recipeStep.Id,
-                            StepName = recipeStep.Name
+                            // TODO, create Result prior to run
+                            stepResults.Add(new RecipeStepResult
+                            {
+                                ExecutionId = executionId,
+                                RecipeName = recipeDescriptor.Name,
+                                StepId = recipeStep.Id,
+                                StepName = recipeStep.Name
+                            });
+                            return Task.CompletedTask;
                         });
-                        return Task.CompletedTask;
-                    });
+                    }
 
                     result.Steps = stepResults;
                     _session.Save(result);
                 }
 
-                using (var stream = _fileSystem.GetFileInfo(recipeDescriptor.Location).CreateReadStream())
+                using (var stream = fileInfo.CreateReadStream())
                 {
-                    await _recipeParser.ProcessRecipeAsync(stream, async (recipe, recipeStep) =>
+                    foreach (var parserForFileExtension in parsersForFileExtension)
                     {
-                        var shellContext = _orchardHost.GetOrCreateShellContext(_shellSettings);
-                        using (var scope = shellContext.CreateServiceScope())
+                        var recipeParser = _recipeParsers.First(x => x.GetType() == parserForFileExtension.Value);
+
+                        await recipeParser.ProcessRecipeAsync(stream, async (recipe, recipeStep) =>
                         {
-                            if (!shellContext.IsActivated)
+                            var shellContext = _orchardHost.GetOrCreateShellContext(_shellSettings);
+                            using (var scope = shellContext.CreateServiceScope())
                             {
-                                var eventBus = scope.ServiceProvider.GetService<IEventBus>();
-                                await eventBus.NotifyAsync<IOrchardShellEvents>(x => x.ActivatingAsync());
-                                await eventBus.NotifyAsync<IOrchardShellEvents>(x => x.ActivatedAsync());
+                                if (!shellContext.IsActivated)
+                                {
+                                    var eventBus = scope.ServiceProvider.GetService<IEventBus>();
+                                    await eventBus.NotifyAsync<IOrchardShellEvents>(x => x.ActivatingAsync());
+                                    await eventBus.NotifyAsync<IOrchardShellEvents>(x => x.ActivatedAsync());
 
-                                shellContext.IsActivated = true;
+                                    shellContext.IsActivated = true;
+                                }
+
+                                var recipeStepExecutor = scope.ServiceProvider.GetRequiredService<IRecipeStepExecutor>();
+
+                                if (_applicationLifetime.ApplicationStopping.IsCancellationRequested)
+                                {
+                                    throw new OrchardException(T["Recipe cancelled, application is restarting"]);
+                                }
+
+                                await recipeStepExecutor.ExecuteAsync(executionId, recipeStep);
                             }
-
-                            var recipeStepExecutor = scope.ServiceProvider.GetRequiredService<IRecipeStepExecutor>();
-
-                            if (_applicationLifetime.ApplicationStopping.IsCancellationRequested)
-                            {
-                                throw new OrchardException(T["Recipe cancelled, application is restarting"]);
-                            }
-
-                            await recipeStepExecutor.ExecuteAsync(executionId, recipeStep);
-                        }
-                    });
+                        });
+                    }
                 }
 
                 await _eventBus.NotifyAsync<IRecipeEventHandler>(x => x.RecipeExecutedAsync(executionId, recipeDescriptor));
