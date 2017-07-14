@@ -1,8 +1,5 @@
-﻿using Orchard.DisplayManagement.Descriptors;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Linq;
+using Orchard.DisplayManagement.Descriptors;
 using Xunit;
 
 namespace Orchard.Tests.DisplayManagement.Decriptors
@@ -34,12 +31,12 @@ namespace Orchard.Tests.DisplayManagement.Decriptors
         [Fact]
         public void LayoutZoneShouldBeParsed()
         {
-            Assert.Equal(true, new PlacementInfo { Location = "/Content" }.IsLayoutZone());
-            Assert.Equal(true, new PlacementInfo { Location = "/Content:5" }.IsLayoutZone());
-            Assert.Equal(false, new PlacementInfo { Location = "Content:5#Tab1" }.IsLayoutZone());
-            Assert.Equal(false, new PlacementInfo { Location = "Content:5.1#Tab1" }.IsLayoutZone());
-            Assert.Equal(false, new PlacementInfo { Location = "Content:5@Group1" }.IsLayoutZone());
-            Assert.Equal(false, new PlacementInfo { Location = "Content:5@Group1#Tab1" }.IsLayoutZone());
+            Assert.True(new PlacementInfo { Location = "/Content" }.IsLayoutZone());
+            Assert.True(new PlacementInfo { Location = "/Content:5" }.IsLayoutZone());
+            Assert.False(new PlacementInfo { Location = "Content:5#Tab1" }.IsLayoutZone());
+            Assert.False(new PlacementInfo { Location = "Content:5.1#Tab1" }.IsLayoutZone());
+            Assert.False(new PlacementInfo { Location = "Content:5@Group1" }.IsLayoutZone());
+            Assert.False(new PlacementInfo { Location = "Content:5@Group1#Tab1" }.IsLayoutZone());
         }
 
         [Fact]
@@ -57,10 +54,10 @@ namespace Orchard.Tests.DisplayManagement.Decriptors
         [Fact]
         public void GroupShouldBeParsed()
         {
-            Assert.Equal("", new PlacementInfo { Location = "Content" }.GetGroup());
-            Assert.Equal("", new PlacementInfo { Location = "Content:5" }.GetGroup());
-            Assert.Equal("", new PlacementInfo { Location = "Content:5#Tab1" }.GetGroup());
-            Assert.Equal("", new PlacementInfo { Location = "Content:5.1#Tab1" }.GetGroup());
+            Assert.Null(new PlacementInfo { Location = "Content" }.GetGroup());
+            Assert.Null(new PlacementInfo { Location = "Content:5" }.GetGroup());
+            Assert.Null(new PlacementInfo { Location = "Content:5#Tab1" }.GetGroup());
+            Assert.Null(new PlacementInfo { Location = "Content:5.1#Tab1" }.GetGroup());
             Assert.Equal("Group1", new PlacementInfo { Location = "Content:5@Group1" }.GetGroup());
             Assert.Equal("Group1", new PlacementInfo { Location = "Content:5@Group1#Tab1" }.GetGroup());
             Assert.Equal("Group1", new PlacementInfo { Location = "Content:5#Tab1@Group1" }.GetGroup());

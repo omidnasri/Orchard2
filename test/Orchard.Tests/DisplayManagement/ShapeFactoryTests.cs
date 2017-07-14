@@ -1,14 +1,14 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orchard.DisplayManagement;
-using Orchard.DisplayManagement.Theming;
 using Orchard.DisplayManagement.Descriptors;
 using Orchard.DisplayManagement.Implementation;
 using Orchard.DisplayManagement.Shapes;
+using Orchard.DisplayManagement.Theming;
 using Orchard.Environment.Extensions;
 using Orchard.Tests.Stubs;
-using System;
-using System.Collections.Generic;
 using Xunit;
 
 namespace Orchard.Tests.DisplayManagement
@@ -16,6 +16,7 @@ namespace Orchard.Tests.DisplayManagement
     public class ShapeFactoryTests
     {
         IServiceProvider _serviceProvider;
+        TestShapeTable _shapeTable;
 
         public ShapeFactoryTests()
         {
@@ -27,12 +28,13 @@ namespace Orchard.Tests.DisplayManagement
             serviceCollection.AddScoped<IExtensionManager, StubExtensionManager>();
             serviceCollection.AddScoped<IShapeTableManager, TestShapeTableManager>();
 
-            var defaultShapeTable = new ShapeTable
+            _shapeTable = new TestShapeTable
             {
                 Descriptors = new Dictionary<string, ShapeDescriptor>(StringComparer.OrdinalIgnoreCase),
                 Bindings = new Dictionary<string, ShapeBinding>(StringComparer.OrdinalIgnoreCase)
             };
-            serviceCollection.AddSingleton(defaultShapeTable);
+
+            serviceCollection.AddSingleton(_shapeTable);
 
             _serviceProvider = serviceCollection.BuildServiceProvider();
         }
@@ -76,20 +78,42 @@ namespace Orchard.Tests.DisplayManagement
         }
 
         [Fact]
-        public void CallInitializerWithBaseType()
+        public void ShapeFactoryUsesCustomShapeType()
         {
-            dynamic factory = _serviceProvider.GetService<IShapeFactory>();
-            var bar = new { One = 1, Two = "two" };
-            var foo = factory.Foo(typeof(MyShape), bar);
+            var descriptor = new ShapeDescriptor();
+            descriptor.Creating = new List<Action<ShapeCreatingContext>>()
+            {
+                (ctx) => { ctx.Create = () => new SubShape(); }
+            };
 
-            Assert.IsType(typeof(MyShape), foo);
-            Assert.Equal(1, foo.One);
-            Assert.Equal("two", foo.Two);
+            _shapeTable.Descriptors.Add("Foo", descriptor);
+            dynamic factory = _serviceProvider.GetService<IShapeFactory>();
+            var foo = factory.Foo();
+
+            Assert.IsType<SubShape>(foo);
         }
 
-        public class MyShape : Shape
+        [Fact]
+        public void ShapeFactoryWithCustomShapeTypeAppliesArguments()
         {
-            public string Kind { get; set; }
+            var descriptor = new ShapeDescriptor();
+            descriptor.Creating = new List<Action<ShapeCreatingContext>>()
+            {
+                (ctx) => { ctx.Create = () => new SubShape(); }
+            };
+
+            _shapeTable.Descriptors.Add("Foo", descriptor);
+            dynamic factory = _serviceProvider.GetService<IShapeFactory>();
+            var foo = factory.Foo(Bar: "Bar", Baz: "Baz");
+
+            Assert.Equal("Bar", foo.Bar);
+            Assert.Equal("Baz", foo.Baz);
+        }
+
+
+        private class SubShape : Shape
+        {
+
         }
     }
 }

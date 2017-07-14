@@ -11,7 +11,7 @@ namespace Orchard.Tests.Data
         {
             var contentItem = new ContentItem();
             contentItem.Id = 1;
-            contentItem.ContentItemId = 2;
+            contentItem.ContentItemId = "2";
             contentItem.ContentType = "Page";
             contentItem.Latest = true;
             contentItem.Published = true;
@@ -48,7 +48,7 @@ namespace Orchard.Tests.Data
         public void ShouldUpdateContent()
         {
             var contentItem = new ContentItem();
-            contentItem.Weld<MyPart>();
+            contentItem.GetOrCreate<MyPart>();
             contentItem.Content.MyPart.Text = "test";
 
             var json = JsonConvert.SerializeObject(contentItem);
@@ -63,7 +63,7 @@ namespace Orchard.Tests.Data
         public void ShouldAlterPart()
         {
             var contentItem = new ContentItem();
-            contentItem.Weld<MyPart>();
+            contentItem.GetOrCreate<MyPart>();
             contentItem.Alter<MyPart>(x => x.Text = "test");
 
             var json = JsonConvert.SerializeObject(contentItem);
@@ -78,7 +78,7 @@ namespace Orchard.Tests.Data
         public void ContentShouldOnlyContainParts()
         {
             var contentItem = new ContentItem();
-            contentItem.Weld<MyPart>();
+            contentItem.GetOrCreate<MyPart>();
             contentItem.Alter<MyPart>(x => x.Text = "test");
 
             var json = JsonConvert.SerializeObject(contentItem);
@@ -90,11 +90,11 @@ namespace Orchard.Tests.Data
         public void ContentShouldStoreFields()
         {
             var contentItem = new ContentItem();
-            contentItem.Weld<MyPart>();
+            contentItem.GetOrCreate<MyPart>();
             contentItem.Alter<MyPart>(x => x.Text = "test");
             contentItem.Alter<MyPart>(x =>
             {
-                x.Weld<MyField>("myField");
+                x.GetOrCreate<MyField>("myField");
                 x.Alter<MyField>("myField", f => f.Value = 123);
             });
 

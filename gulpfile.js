@@ -79,7 +79,7 @@ gulp.task("watch", function () {
 */
 
 function getAssetGroups() {
-    var assetManifestPaths = glob.sync("./src/Orchard.Web/{Core,Modules,Themes}/*/Assets.json", {});
+    var assetManifestPaths = glob.sync("./src/OrchardCore.{Modules,Themes}/*/Assets.json", {});
     var assetGroups = [];
     assetManifestPaths.forEach(function (assetManifestPath) {
         var assetManifest = require("./" + assetManifestPath);
@@ -106,7 +106,8 @@ function resolveAssetGroupPaths(assetGroup, assetManifestPath) {
     assetGroup.outputPath = path.resolve(path.join(assetGroup.basePath, assetGroup.output));
     assetGroup.outputDir = path.dirname(assetGroup.outputPath);
     assetGroup.outputFileName = path.basename(assetGroup.output);
-    assetGroup.webroot = path.join("./src/Orchard.Web/wwwroot/", path.basename(assetGroup.basePath), path.dirname(assetGroup.output));
+    // Uncomment to copy assets to wwwroot
+    //assetGroup.webroot = path.join("./src/Orchard.Cms.Web/wwwroot/", path.basename(assetGroup.basePath), path.dirname(assetGroup.output));
 }
 
 function createAssetGroupTask(assetGroup, doRebuild) {
@@ -137,8 +138,12 @@ function buildCssPipeline(assetGroup, doConcat, doRebuild) {
             throw "Input file '" + inputPath + "' is not of a valid type for output file '" + assetGroup.outputPath + "'.";
     });
     var generateSourceMaps = assetGroup.hasOwnProperty("generateSourceMaps") ? assetGroup.generateSourceMaps : true;
+    var containsLessOrScss = assetGroup.inputPaths.some(function (inputPath) {
+        var ext = path.extname(inputPath).toLowerCase();
+        return ext === ".less" || ext === ".scss";
+    });
     // Source maps are useless if neither concatenating nor transforming.
-    if ((!doConcat || assetGroup.inputPaths.length < 2) && !assetGroup.inputPaths.some(function (inputPath) { return path.extname(inputPath).toLowerCase() === ".less"; }))
+    if ((!doConcat || assetGroup.inputPaths.length < 2) && !containsLessOrScss)
         generateSourceMaps = false;
     var minifiedStream = gulp.src(assetGroup.inputPaths) // Minified output, source mapping completely disabled.
         .pipe(gulpif(!doRebuild,
@@ -167,7 +172,8 @@ function buildCssPipeline(assetGroup, doConcat, doRebuild) {
         }))
         .pipe(eol())
         .pipe(gulp.dest(assetGroup.outputDir))
-        .pipe(gulp.dest(assetGroup.webroot));
+        // Uncomment to copy assets to wwwroot
+        //.pipe(gulp.dest(assetGroup.webroot));
     var devStream = gulp.src(assetGroup.inputPaths) // Non-minified output, with source mapping
         .pipe(gulpif(!doRebuild,
             gulpif(doConcat,
@@ -191,7 +197,8 @@ function buildCssPipeline(assetGroup, doConcat, doRebuild) {
         .pipe(gulpif(generateSourceMaps, sourcemaps.write()))
         .pipe(eol())
         .pipe(gulp.dest(assetGroup.outputDir))
-        .pipe(gulp.dest(assetGroup.webroot));
+        // Uncomment to copy assets to wwwroot
+        //.pipe(gulp.dest(assetGroup.webroot));
     return merge([minifiedStream, devStream]);
 }
 
@@ -229,12 +236,14 @@ function buildJsPipeline(assetGroup, doConcat, doRebuild) {
             "*/\n\n"))
         .pipe(gulpif(generateSourceMaps, sourcemaps.write()))
         .pipe(gulp.dest(assetGroup.outputDir))
-        .pipe(gulp.dest(assetGroup.webroot))
+        // Uncomment to copy assets to wwwroot
+        //.pipe(gulp.dest(assetGroup.webroot))
         .pipe(uglify())
         .pipe(rename({
             suffix: ".min"
         }))
         .pipe(eol())
         .pipe(gulp.dest(assetGroup.outputDir))
-        .pipe(gulp.dest(assetGroup.webroot));
+        // Uncomment to copy assets to wwwroot
+        //.pipe(gulp.dest(assetGroup.webroot));
 }

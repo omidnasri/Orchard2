@@ -1,25 +1,26 @@
-﻿using Microsoft.AspNetCore.Html;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.DependencyInjection;
-using Orchard.DisplayManagement.Theming;
+using Microsoft.Extensions.Localization;
 using Orchard.DisplayManagement.Descriptors;
 using Orchard.DisplayManagement.Implementation;
 using Orchard.DisplayManagement.Shapes;
+using Orchard.DisplayManagement.Theming;
 using Orchard.Environment.Extensions;
 using Orchard.Events;
 using Orchard.Tests.Stubs;
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
 using Xunit;
-using System.Threading.Tasks;
 
 namespace Orchard.Tests.DisplayManagement
 {
     public class DefaultDisplayManagerTests
     {
-        ShapeTable _defaultShapeTable;
+        TestShapeTable _defaultShapeTable;
         IServiceProvider _serviceProvider;
 
         public class StubEventBus : IEventBus
@@ -39,10 +40,9 @@ namespace Orchard.Tests.DisplayManagement
             }
         }
 
-
         public DefaultDisplayManagerTests()
         {
-            _defaultShapeTable = new ShapeTable
+            _defaultShapeTable = new TestShapeTable
             {
                 Descriptors = new Dictionary<string, ShapeDescriptor>(StringComparer.OrdinalIgnoreCase),
                 Bindings = new Dictionary<string, ShapeBinding>(StringComparer.OrdinalIgnoreCase)
@@ -52,11 +52,12 @@ namespace Orchard.Tests.DisplayManagement
 
             serviceCollection.AddScoped<IThemeManager, ThemeManager>();
             serviceCollection.AddScoped<IHttpContextAccessor, StubHttpContextAccessor>();
-            serviceCollection.AddScoped<IHtmlDisplay, DefaultIHtmlDisplay>();
+            serviceCollection.AddScoped<IHtmlDisplay, DefaultHtmlDisplay>();
             serviceCollection.AddScoped<IShapeTableManager, TestShapeTableManager>();
             serviceCollection.AddScoped<IShapeDisplayEvents, TestDisplayEvents>();
             serviceCollection.AddScoped<IExtensionManager, StubExtensionManager>();
             serviceCollection.AddScoped<IEventBus, StubEventBus>();
+            serviceCollection.AddScoped<IStringLocalizer<DefaultHtmlDisplay>, NullStringLocalizer<DefaultHtmlDisplay>>();
             serviceCollection.AddLogging();
 
             serviceCollection.AddSingleton(_defaultShapeTable);
@@ -66,16 +67,12 @@ namespace Orchard.Tests.DisplayManagement
 
         class TestDisplayEvents : IShapeDisplayEvents
         {
-            public Action<ShapeDisplayingContext> Displaying = ctx => { };
-            public Action<ShapeDisplayedContext> Displayed = ctx => { };
+            public Action<ShapeDisplayContext> Displaying = ctx => { };
+            public Action<ShapeDisplayContext> Displayed = ctx => { };
 
-            void IShapeDisplayEvents.Displaying(ShapeDisplayingContext context) { Displaying(context); }
-            void IShapeDisplayEvents.Displayed(ShapeDisplayedContext context) { Displayed(context); }
+            void IShapeDisplayEvents.Displaying(ShapeDisplayContext context) { Displaying(context); }
+            void IShapeDisplayEvents.Displayed(ShapeDisplayContext context) { Displayed(context); }
         }
-
-
-
-
 
         void AddShapeDescriptor(ShapeDescriptor shapeDescriptor)
         {
@@ -258,36 +255,6 @@ namespace Orchard.Tests.DisplayManagement
             };
         }
 
-
-        //[Fact]
-        //public void IShapeDisplayEventsIsCalled() {
-        //    var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
-
-        //    var shape = new Shape {
-        //        Metadata = new ShapeMetadata {
-        //            Type = "Foo"
-        //        }
-        //    };
-
-        //    var descriptor = new ShapeDescriptor {
-        //        ShapeType = "Foo",
-        //    };
-        //    AddBinding(descriptor, "Foo", ctx => new HtmlString("yarg"));
-        //    AddShapeDescriptor(descriptor);
-
-        //    var displayingEventCount = 0;
-        //    var displayedEventCount = 0;
-        //    _container.Resolve<TestDisplayEvents>().Displaying = ctx => { ++displayingEventCount; };
-        //    _container.Resolve<TestDisplayEvents>().Displayed = ctx => { ++displayedEventCount; ctx.ChildContent = new HtmlString("[" + ctx.ChildContent.ToHtmlString() + "]"); };
-
-        //    var result = displayManager.Execute(CreateDisplayContext(shape));
-
-        //    Assert.That(displayingEventCount, Is.EqualTo(1));
-        //    Assert.That(displayedEventCount, Is.EqualTo(1));
-        //    Assert.That(result.ToString(), Is.EqualTo("[yarg]"));
-        //}
-
-
         [Fact]
         public async Task ShapeDescriptorDisplayingAndDisplayedAreCalled()
         {
@@ -310,8 +277,8 @@ namespace Orchard.Tests.DisplayManagement
 
             var displayingEventCount = 0;
             var displayedEventCount = 0;
-            descriptor.Displaying = new Action<ShapeDisplayingContext>[] { ctx => { ++displayingEventCount; } };
-            descriptor.Displayed = new Action<ShapeDisplayedContext>[] { ctx => { ++displayedEventCount; ctx.ChildContent = new HtmlString("[" + ctx.ChildContent.ToString() + "]"); } };
+            descriptor.Displaying = new Action<ShapeDisplayContext>[] { ctx => { ++displayingEventCount; } };
+            descriptor.Displayed = new Action<ShapeDisplayContext>[] { ctx => { ++displayedEventCount; ctx.ChildContent = new HtmlString("[" + ctx.ChildContent.ToString() + "]"); } };
 
             var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
 
@@ -348,7 +315,7 @@ namespace Orchard.Tests.DisplayManagement
 
 
             var resultNormally = await displayManager.ExecuteAsync(CreateDisplayContext(shapeFoo));
-            descriptorFoo.Displaying = new Action<ShapeDisplayingContext>[] { ctx => ctx.ShapeMetadata.Alternates.Add("Bar") };
+            descriptorFoo.Displaying = new Action<ShapeDisplayContext>[] { ctx => ctx.ShapeMetadata.Alternates.Add("Bar") };
             var resultWithOverride = await displayManager.ExecuteAsync(CreateDisplayContext(shapeFoo));
 
             Assert.Equal("alpha", resultNormally.ToString());

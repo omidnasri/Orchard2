@@ -1,56 +1,55 @@
 ﻿using Orchard.Environment.Extensions;
 using System;
+using Orchard.Environment.Extensions.Loaders;
+using Orchard.Environment.Extensions.Features;
 using System.Collections.Generic;
-using Orchard.Environment.Extensions.Models;
-using System.Linq;
+using System.Threading.Tasks;
 
 namespace Orchard.Tests.Stubs
 {
     public class StubExtensionManager : IExtensionManager
     {
-        public IEnumerable<ExtensionDescriptor> AvailableExtensions()
+        public IEnumerable<IFeatureInfo> GetDependentFeatures(string featureId)
         {
             throw new NotImplementedException();
         }
 
-        public IEnumerable<FeatureDescriptor> AvailableFeatures()
+        public IExtensionInfo GetExtension(string extensionId)
         {
             throw new NotImplementedException();
         }
 
-        public ExtensionDescriptor GetExtension(string id)
+        public IEnumerable<IExtensionInfo> GetExtensions()
         {
             throw new NotImplementedException();
         }
 
-        public bool HasDependency(FeatureDescriptor item, FeatureDescriptor subject)
-        {
-            if (DefaultExtensionTypes.IsTheme(item.Extension.ExtensionType))
-            {
-                if (DefaultExtensionTypes.IsModule(subject.Extension.ExtensionType))
-                {
-                    // Themes implicitly depend on modules to ensure build and override ordering
-                    return true;
-                }
-
-                if (DefaultExtensionTypes.IsTheme(subject.Extension.ExtensionType))
-                {
-                    // Theme depends on another if it is its base theme
-                    return item.Extension.BaseTheme == subject.Id;
-                }
-            }
-
-            // Return based on explicit dependencies
-            return item.Dependencies != null &&
-                   item.Dependencies.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x, subject.Id));
-        }
-
-        public ExtensionEntry LoadExtension(ExtensionDescriptor descriptor)
+        public IEnumerable<IFeatureInfo> GetFeatureDependencies(string featureId)
         {
             throw new NotImplementedException();
         }
 
-        public IEnumerable<Feature> LoadFeatures(IEnumerable<FeatureDescriptor> featureDescriptors)
+        public IEnumerable<IFeatureInfo> GetFeatures()
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<IFeatureInfo> GetFeatures(string[] featureIdsToLoad)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ExtensionEntry> LoadExtensionAsync(IExtensionInfo extensionInfo)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<IEnumerable<FeatureEntry>> LoadFeaturesAsync()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<IEnumerable<FeatureEntry>> LoadFeaturesAsync(string[] featureIdsToLoad)
         {
             throw new NotImplementedException();
         }

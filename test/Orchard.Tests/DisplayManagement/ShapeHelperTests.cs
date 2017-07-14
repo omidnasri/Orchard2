@@ -1,13 +1,13 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Orchard.DisplayManagement;
-using Orchard.DisplayManagement.Theming;
 using Orchard.DisplayManagement.Descriptors;
 using Orchard.DisplayManagement.Implementation;
+using Orchard.DisplayManagement.Theming;
 using Orchard.Environment.Extensions;
 using Orchard.Tests.Stubs;
-using System;
-using System.Collections.Generic;
 using Xunit;
 
 namespace Orchard.Tests.DisplayManagement
@@ -22,14 +22,14 @@ namespace Orchard.Tests.DisplayManagement
 
             serviceCollection.AddLogging();
             serviceCollection.AddScoped<IHttpContextAccessor, StubHttpContextAccessor>();
-            serviceCollection.AddScoped<IHtmlDisplay, DefaultIHtmlDisplay>();
+            serviceCollection.AddScoped<IHtmlDisplay, DefaultHtmlDisplay>();
             serviceCollection.AddScoped<IExtensionManager, StubExtensionManager>();
             serviceCollection.AddScoped<IThemeManager, ThemeManager>();
             serviceCollection.AddScoped<IShapeFactory, DefaultShapeFactory>();
             serviceCollection.AddScoped<IShapeTableManager, TestShapeTableManager>();
 
 
-            var defaultShapeTable = new ShapeTable
+            var defaultShapeTable = new TestShapeTable
             {
                 Descriptors = new Dictionary<string, ShapeDescriptor>(StringComparer.OrdinalIgnoreCase),
                 Bindings = new Dictionary<string, ShapeBinding>(StringComparer.OrdinalIgnoreCase)
